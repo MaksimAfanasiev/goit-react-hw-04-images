@@ -1,4 +1,4 @@
-import { Component } from 'react';
+import { useState, useEffect } from 'react';
 import { Searchbar } from './Searchbar/Searchbar';
 import { ImageGallery } from './ImageGallery/ImageGallery';
 import { Button } from './Button/Button';
@@ -7,40 +7,32 @@ import { TailSpin } from 'react-loader-spinner'
 import { Modal } from "./Modal/Modal";
 import css from "./App.module.css"
 
-export class App extends Component {
+export const App = () => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [images, setImages] = useState([]);
+  const [page, setPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
+  const [modalImage, setModalImage] = useState(null);
 
-  state = {
-    searchQuery: "",
-    images: [],
-    page: 1,
-    isLoading: false,
-    modalImage: null,
+  useEffect(() => {
+    if (searchQuery === "") {
+      return;
+    }else {
+      fetchData(searchQuery, page).then(images => setImages((state) => [...state, ...images]))
+      }
+  }, [searchQuery, page]);
+
+  function getQuery(query) {
+    setImages([]);
+    setSearchQuery(query);
+    setPage(1);
   }
 
-  componentDidUpdate(prevProps, prevState) {
-    if (prevState.searchQuery !== this.state.searchQuery) {
-      this.fetchData().then(images => this.setState({images}))
-    }
-
-    if (prevState.searchQuery === this.state.searchQuery && prevState.page !== this.state.page) {
-      this.fetchData().then(images => this.setState((state) => ({images: [...state.images, ...images]})))
-    }
-  }
-
-  getQuery = (query) => { 
-    this.setState({
-      searchQuery: query,
-      page:1});
-  }
-
-  fetchData = async() => {
+  async function fetchData (query, page) {
     const KEY = "27715674-92925a6f691a5283ca5f8bc26";
-    const query = this.state.searchQuery;
-    const page = this.state.page;
     const URL = `https://pixabay.com/api/?q=${query}&page=${page}&key=${KEY}&image_type=photo&orientation=horizontal&per_page=12`;
     
-
-    this.setState({isLoading: true})
+    setIsLoading(true);
     const response = await fetch(URL);
     const data = await response.json();
 
@@ -49,37 +41,25 @@ export class App extends Component {
       }
     )
 
-    this.setState({isLoading: false})
+    setIsLoading(false);
     return images;
   }
 
-  onLoadMoreClick = () => {
-    this.setState((prevState) => ({page: prevState.page + 1}))
+  function openModal(img) {
+    setModalImage(img);
   }
 
-  openModal = (img) => {
-    this.setState({modalImage: img})
-  }
+  return (
+    <div className={css.App}>
+      <Searchbar onSubmit={getQuery} />
 
-  closeModal = () => {
-    this.setState({modalImage: null})
-  }
+      <ImageGallery images={images} openImage={openModal} />
 
-  render() {
-    const { images, isLoading, modalImage } = this.state;
+      {isLoading && <TailSpin height="80" width="80" color='grey' ariaLabel='loading' />}
 
-    return (
-      <div className={css.App}>
-        <Searchbar onSubmit={this.getQuery} />
+      {images.length > 0 && <Button onClick={() => setPage(page => page + 1)} />}
 
-        <ImageGallery images={images} openImage={this.openModal} />
-
-        {isLoading && <TailSpin height="80" width="80" color='grey' ariaLabel='loading' />}
-
-        {images.length > 0 && <Button onClick={this.onLoadMoreClick} />}
-
-        {modalImage && <Modal image={modalImage} closeImage={this.closeModal} />}
-      </div>
-    )
-  }
-};
+      {modalImage && <Modal image={modalImage} closeImage={() => setModalImage(null)} />}
+    </div>
+  )
+}
